@@ -1,0 +1,6 @@
+{
+  "name": "InspectAI — Visual Quality Inspection & Traceability Platform",
+  "description": "AI-powered manufacturing visual quality inspection, asynchronous batch defect detection, role-based access control, and supervisor review platform.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

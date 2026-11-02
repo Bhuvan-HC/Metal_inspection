@@ -1,0 +1,6 @@
+{
+  "summary": "Architectural blueprint and implementation plan for InspectAI, the AI-powered visual quality inspection and traceability platform. Covers the glassmorphism industrial UI, strict role-based access control, frozen model inference engine, asynchronous batch processing queue, supervisor review workflow, and evaluation metrics across all 60 samples.",
+  "updatedAt": "2026-11-02T19:01:20.668160427Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

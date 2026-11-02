@@ -1,0 +1,1930 @@
+# PROJECT: InspectAI — AI-Powered Visual Quality Inspection & Traceability Platform
+
+## 1. YOUR ROLE
+
+Act as a senior full-stack developer, AI/ML integration engineer, backend architect, UI/UX designer, database engineer, and software tester.
+
+Build a complete, production-style hackathon application named **InspectAI**.
+
+The application must perform AI-powered visual quality inspection of manufactured products, maintain inspection records, process batches of images asynchronously, support role-based access control, and provide a supervisor review workflow.
+
+The application must be functional, secure, visually impressive, and ready for a live hackathon demonstration.
+
+Do not create only a frontend prototype. Implement the actual backend, database, authentication, AI integration, background processing, and frontend communication.
+
+Do not leave core features as TODO comments, fake API calls, or buttons that do nothing.
+
+---
+
+# 2. OFFICIAL CHALLENGE REQUIREMENTS
+
+The application must support the following workflow.
+
+### Product
+
+Product ID: P-PLATE01
+
+Product description: Synthetic centered plate with scratches or pits.
+
+### Classification
+
+The supplied AI classifier has two classes:
+
+* Normal
+* Defective
+
+Use the provided model and its existing inference pipeline.
+
+Do not train a replacement model.
+
+Do not change the model weights, preprocessing, class mapping, or classification threshold.
+
+The decision threshold is 0.5.
+
+Use the supplied model artifacts and inference code as the source of truth.
+
+### Image inspection
+
+An authenticated engineer must be able to:
+
+1. Select the registered product.
+2. Upload an image.
+3. Validate the image.
+4. Run AI inference.
+5. View the predicted class.
+6. View the confidence score.
+7. View the defect probability, where supported by the supplied model.
+8. View the inspection timestamp.
+9. Save the result permanently.
+10. Access inspection history.
+
+### Batch inspection
+
+Support batches containing 1–10 images.
+
+The application must:
+
+* Validate each image independently.
+* Accept valid images even when other files in the batch are invalid.
+* Reject corrupted images.
+* Reject non-image files, including text files renamed with image extensions.
+* Reject images below the required minimum dimensions.
+* Use asynchronous background processing.
+* Track the status of every image independently.
+* Continue processing other valid images when one item fails.
+* Preserve batch and item-level statuses.
+* Display understandable errors.
+
+Use Celery and Redis for background processing.
+
+### Supervisor review
+
+Supervisors must be able to:
+
+* View all inspection records.
+* Filter inspection records.
+* View the original AI prediction.
+* Confirm or correct the predicted class.
+* Add review comments.
+* Save a review timestamp.
+* Record the reviewing supervisor.
+* View the original prediction and the supervisor's decision separately.
+
+Never overwrite the original AI prediction when a supervisor reviews an inspection.
+
+### Role-based security
+
+Support at least two roles:
+
+**Engineer**
+
+* Upload inspection images.
+* Run inspections.
+* View their own inspection history.
+* View their own permitted batch results.
+* Cannot access supervisor-only review operations.
+
+**Supervisor**
+
+* View all inspection records.
+* Review and correct AI predictions.
+* Access permitted quality analytics.
+* View the review history.
+
+Enforce authorization on the backend, not merely by hiding frontend buttons.
+
+Unauthorized requests must receive an appropriate HTTP 403 response.
+
+Unauthenticated requests must receive an appropriate HTTP 401 response.
+
+### Evaluation
+
+Provide an evaluation interface that uses the supplied evaluation data and actual model predictions.
+
+Report:
+
+* Confusion matrix.
+* Defect recall.
+* Precision.
+* F1-score.
+* Overall accuracy, where appropriate.
+
+Evaluate the complete supplied evaluation set of 60 samples.
+
+Do not fabricate evaluation results or hardcode metrics.
+
+Exclude intentionally invalid validation inputs from model-performance calculations.
+
+Do not use synthetic filenames or labels as substitutes for actual inference.
+
+---
+
+# 3. TECHNOLOGY STACK
+
+Use the following architecture.
+
+## Frontend
+
+* React
+* Vite
+* JavaScript
+* Tailwind CSS
+* Framer Motion
+* Recharts
+* Lucide React icons
+* Axios
+* React Router
+
+## Backend
+
+* Python
+* Django
+* Django REST Framework
+* Django authentication and permissions
+* PostgreSQL as the preferred persistent database
+* SQLite as an optional local development fallback
+* Celery
+* Redis
+* Pillow for image decoding and validation
+
+## AI integration
+
+* The supplied model artifacts.
+* The supplied inference.py implementation.
+* The supplied classifier.npz file.
+* The supplied model_metadata.json.
+* The supplied requirements file.
+
+Use the exact model-loading and inference behavior specified by the supplied files.
+
+Do not assume that the model is a neural network or use a different ML framework without checking the actual implementation.
+
+## Development tools
+
+* Git
+* Environment variables
+* Python virtual environment
+* npm
+* Django migrations
+* Automated backend tests
+
+Do not add unnecessary libraries.
+
+---
+
+# 4. FIRST STEP: INSPECT THE EXISTING PROJECT AND MODEL
+
+Before creating or modifying code, inspect the complete existing project structure and the supplied challenge files.
+
+Expected challenge assets include:
+
+Model/
+
+* classifier.npz
+* inference.py
+* model_metadata.json
+* requirements.txt
+
+Samples/
+
+* images/
+* labels.csv
+
+Validation/
+
+* corrupt_image
+* not_an_image
+* too_small
+
+Other files may include:
+
+* product_details.csv
+* Round2_Model_and_Data_Guide.pdf
+* Round2_Student_Challenge_Brief.pdf
+* SHA256SUMS.txt
+
+Actual filenames and extensions may differ.
+
+Treat the actual supplied files as authoritative.
+
+Read the model inference code, metadata, and challenge documentation before implementing the AI service.
+
+Determine:
+
+1. How the model is loaded.
+2. What image input format it expects.
+3. Whether images require resizing or normalization.
+4. How class labels are represented.
+5. What the model returns.
+6. How confidence is calculated.
+7. How the 0.5 threshold is applied.
+8. How the model's checksum can be verified.
+9. How the supplied 60-sample evaluation set is organized.
+10. Which files represent intentionally invalid validation inputs.
+
+Do not guess the model interface.
+
+Do not modify the supplied model artifacts.
+
+Do not train another model.
+
+If an artifact is missing, report the missing file and explain the dependency instead of silently replacing it with a fake implementation.
+
+Preserve the existing code when it is correct.
+
+---
+
+# 5. BACKEND ARCHITECTURE
+
+Organize the Django backend using clear separation of responsibilities.
+
+Suggested structure:
+
+backend/
+manage.py
+config/
+settings.py
+urls.py
+celery.py
+wsgi.py
+asgi.py
+
+```
+accounts/
+    models.py
+    serializers.py
+    views.py
+    permissions.py
+    urls.py
+    tests.py
+
+products/
+    models.py
+    serializers.py
+    views.py
+    urls.py
+    tests.py
+
+inspections/
+    models.py
+    serializers.py
+    views.py
+    services.py
+    validators.py
+    tasks.py
+    permissions.py
+    urls.py
+    tests.py
+
+reviews/
+    models.py
+    serializers.py
+    views.py
+    permissions.py
+    urls.py
+    tests.py
+
+analytics/
+    services.py
+    views.py
+    urls.py
+    tests.py
+
+ai_engine/
+    model_service.py
+    model_metadata.py
+
+evaluation/
+    services.py
+    views.py
+    urls.py
+
+requirements.txt
+.env.example
+```
+
+Adapt the structure to the existing repository if necessary.
+
+Avoid duplicating the model-loading logic across views or tasks.
+
+Create a reusable AI service responsible for loading the model and performing inference.
+
+Load the model efficiently rather than reloading it for every request.
+
+Ensure the background worker can load the same model independently.
+
+Do not allow API requests to specify arbitrary filesystem paths for model files.
+
+---
+
+# 6. DATABASE DESIGN
+
+Create proper relational database models.
+
+## A. User/Profile
+
+Fields:
+
+* id
+* username
+* email
+* role
+* is_active
+* created_at
+
+Roles:
+
+* ENGINEER
+* SUPERVISOR
+
+Use Django authentication.
+
+Public registration must not allow users to assign themselves the supervisor role.
+
+Create the initial supervisor through a secure management command or Django administrative process.
+
+## B. Product
+
+Fields:
+
+* id
+* product_id
+* name
+* description
+* is_active
+* created_at
+
+Register the supplied product:
+
+Product ID: P-PLATE01
+
+Do not create duplicate product records.
+
+## C. InspectionBatch
+
+Fields:
+
+* id
+* batch_id
+* uploaded_by
+* total_files
+* accepted_files
+* rejected_files
+* completed_files
+* failed_files
+* status
+* created_at
+* completed_at
+
+Possible statuses:
+
+* PENDING
+* PROCESSING
+* COMPLETED
+* COMPLETED_WITH_ERRORS
+* FAILED
+
+Derive batch status from the actual item statuses.
+
+## D. Inspection
+
+Fields:
+
+* id
+* inspection_id
+* batch
+* product
+* uploaded_by
+* original_filename
+* image_path
+* image_sha256
+* status
+* predicted_class
+* confidence
+* defect_probability, if supported
+* model_version
+* error_message
+* created_at
+* started_at
+* completed_at
+
+Possible statuses:
+
+* PENDING
+* PROCESSING
+* COMPLETED
+* REJECTED
+* FAILED
+
+Preserve inspection history.
+
+Do not delete or replace a previous inspection when a new image is uploaded.
+
+Store image files safely using Django's configured storage system.
+
+Do not save arbitrary user-provided filesystem paths.
+
+## E. InspectionReview
+
+Fields:
+
+* id
+* inspection
+* reviewed_by
+* original_predicted_class
+* reviewed_class
+* decision
+* comments
+* created_at
+* updated_at
+
+Possible decisions:
+
+* CONFIRMED
+* CORRECTED
+
+Allow the application to show the original prediction separately from the supervisor's decision.
+
+Preserve review history if a review is updated. Use an append-only audit record or an equivalent versioned design.
+
+Use database constraints and transactions where appropriate.
+
+## F. AuditLog
+
+Fields:
+
+* id
+* actor
+* action
+* resource_type
+* resource_id
+* details
+* created_at
+
+Record important events, including:
+
+* Inspection creation.
+* Successful inference.
+* Failed inference.
+* Supervisor review.
+* Supervisor correction.
+* Permission-denied review attempts, where practical.
+
+Never log passwords, authentication tokens, or sensitive secrets.
+
+---
+
+# 7. AI MODEL INTEGRATION
+
+Create:
+
+ai_engine/model_service.py
+
+Responsibilities:
+
+1. Load the supplied classifier.
+2. Load its metadata.
+3. Verify model artifacts against the supplied checksums when available.
+4. Validate and prepare images according to inference.py.
+5. Execute the actual inference function.
+6. Convert the returned prediction into the correct class representation.
+7. Apply the supplied 0.5 threshold as specified by the model documentation.
+8. Return the actual prediction and supported confidence information.
+9. Handle inference errors safely.
+10. Expose model version and metadata to the application.
+
+Example service interface:
+
+predict_image(image_path)
+
+The function must call the supplied inference implementation.
+
+The return format should be adapted to the real output of inference.py rather than assuming an undocumented structure.
+
+Expected conceptual output:
+
+{
+"predicted_class": "Normal",
+"confidence": 0.94,
+"defect_probability": 0.06,
+"model_version": "version-from-metadata"
+}
+
+This JSON is an illustrative interface, not a substitute for inspecting the supplied model.
+
+The values must come from actual inference and metadata.
+
+Important:
+
+* Never fabricate a prediction when inference fails.
+* Never return a random class.
+* Never infer a class from the filename.
+* Never train a replacement model.
+* Never hardcode confidence scores.
+* Never report an unsupported probability.
+* Never modify the original inference code without a documented technical necessity.
+
+If the supplied model returns only a class label and not probabilities, adapt the UI and API to show the information actually available.
+
+Do not invent confidence values.
+
+---
+
+# 8. IMAGE VALIDATION
+
+Create a reusable image-validation service.
+
+Validate images before scheduling inference.
+
+Check:
+
+1. Allowed image extensions.
+2. Actual image format using file content.
+3. Successful image decoding.
+4. Minimum image dimensions according to the supplied challenge guide.
+5. Maximum upload size using a configurable limit.
+6. File count limits.
+7. Empty uploads.
+8. Duplicate images where appropriate.
+9. Unsupported or corrupted files.
+
+Do not trust file extensions or client-provided MIME types.
+
+A text file renamed to .jpg must not be accepted.
+
+An image below the specified minimum dimensions must be rejected.
+
+Use clear error responses.
+
+Example:
+
+{
+"filename": "corrupt_image.jpg",
+"status": "REJECTED",
+"error": "The uploaded file could not be decoded as a valid image."
+}
+
+The filename and message above are illustrative.
+
+Use actual filenames and the applicable challenge rules.
+
+For batch uploads, reject each invalid item independently while accepting valid files.
+
+Never allow one invalid file to prevent all valid files from being processed.
+
+---
+
+# 9. ASYNCHRONOUS BATCH PROCESSING
+
+Use Celery with Redis.
+
+Implement a task such as:
+
+process_inspection(inspection_id)
+
+The task should:
+
+1. Load the inspection record.
+2. Confirm the item is eligible for processing.
+3. Set its status to PROCESSING.
+4. Load the stored image.
+5. Call the shared AI model service.
+6. Save the real prediction.
+7. Save supported confidence information.
+8. Record the model version.
+9. Mark the inspection COMPLETED.
+10. Record completion time.
+11. Handle exceptions.
+12. Mark failed items as FAILED with a readable error.
+13. Update batch progress.
+14. Update the overall batch status.
+
+Use transactions and locking where needed to prevent conflicting updates.
+
+Avoid scheduling the same item more than once.
+
+Do not block the HTTP request while all images are being processed.
+
+The API should return the batch ID and the initial item statuses.
+
+The frontend should poll a batch-status endpoint or use another suitable mechanism to refresh progress.
+
+A batch should be marked:
+
+* COMPLETED when all accepted items finish successfully.
+* COMPLETED_WITH_ERRORS when some items fail or are rejected but processing otherwise finishes.
+* FAILED when the batch cannot be processed as a whole.
+
+Define the exact aggregation logic consistently.
+
+Keep accepted, rejected, completed, and failed counts accurate.
+
+---
+
+# 10. REST API DESIGN
+
+Implement documented, consistent API endpoints.
+
+Use a versioned prefix:
+
+/api/v1/
+
+Authentication:
+
+POST /api/v1/auth/login/
+/POST /api/v1/auth/logout/
+/api/v1/auth/me/
+
+Use the appropriate actual HTTP methods and consistent URL naming.
+
+Products:
+
+GET /api/v1/products/
+GET /api/v1/products/{id}/
+
+Inspections:
+
+POST /api/v1/inspections/
+GET /api/v1/inspections/
+GET /api/v1/inspections/{id}/
+
+Batches:
+
+POST /api/v1/batches/
+GET /api/v1/batches/
+GET /api/v1/batches/{id}/
+GET /api/v1/batches/{id}/status/
+
+Reviews:
+
+GET /api/v1/reviews/
+POST /api/v1/inspections/{id}/review/
+GET /api/v1/inspections/{id}/reviews/
+
+Analytics:
+
+GET /api/v1/analytics/overview/
+GET /api/v1/analytics/trends/
+GET /api/v1/analytics/class-distribution/
+GET /api/v1/analytics/review-summary/
+
+Evaluation:
+
+POST /api/v1/evaluation/run/
+GET /api/v1/evaluation/results/
+
+Implement the necessary serializer validation, pagination, filtering, permissions, and error handling.
+
+Adjust endpoint details where necessary to match Django conventions.
+
+Do not expose unauthorized records.
+
+Do not rely on the frontend to enforce access control.
+
+Use a secure authentication approach appropriate to the application.
+
+If using cookie-based authentication, configure CSRF protection correctly.
+
+If using token authentication, store and transmit tokens securely and configure their expiration and revocation behavior.
+
+Do not store long-lived authentication tokens in localStorage without considering the associated security risks.
+
+---
+
+# 11. ROLE-BASED PERMISSIONS
+
+Create explicit backend permission classes.
+
+ENGINEER:
+
+* Can create inspections.
+* Can upload valid images.
+* Can view permitted personal records.
+* Can view their own batch statuses.
+* Cannot review or correct predictions.
+* Cannot change their own role.
+* Cannot access supervisor-only analytics or records.
+
+SUPERVISOR:
+
+* Can view all inspections.
+* Can view all batches.
+* Can review inspections.
+* Can correct predictions.
+* Can access supervisor analytics.
+* Can view review and audit history.
+
+Implement authorization checks at the API layer.
+
+Return HTTP 403 for an authenticated engineer attempting a supervisor-only operation.
+
+Add automated tests for these permission boundaries.
+
+Never trust a role field supplied by the client.
+
+Never allow a user to promote themselves to supervisor through the registration endpoint.
+
+---
+
+# 12. FRONTEND DESIGN: BEAUTIFUL GLASSMORPHISM
+
+Build a polished industrial SaaS dashboard.
+
+The design must look modern, premium, futuristic, and professional.
+
+Use glassmorphism throughout the application, but prioritize readability, usability, and responsive behavior.
+
+The application should look like a professional AI quality-inspection platform rather than a generic admin template.
+
+## Visual identity
+
+Product name: InspectAI
+
+Tagline:
+
+"Precision in Every Inspection."
+
+Design direction:
+
+* Premium industrial SaaS.
+* Futuristic AI dashboard.
+* Dark glass surfaces.
+* Soft ambient gradients.
+* Subtle glowing borders.
+* Translucent panels.
+* Smooth micro-interactions.
+* Generous spacing.
+* Strong typography.
+* Minimal visual clutter.
+
+## Color palette
+
+Use CSS variables so the theme can be maintained easily.
+
+Suggested palette:
+
+Background:
+
+* Deep navy: #080D1A
+* Dark blue: #10182B
+
+Primary accent:
+
+* Electric cyan: #67E8F9
+
+Secondary accent:
+
+* Indigo: #818CF8
+
+Success:
+
+* Emerald: #34D399
+
+Warning:
+
+* Amber: #FBBF24
+
+Error:
+
+* Rose: #FB7185
+
+Text:
+
+* Primary: #F1F5F9
+* Secondary: #A7B3C9
+
+Glass surfaces:
+
+* Semi-transparent white backgrounds.
+* Soft white borders with low opacity.
+* Controlled background blur.
+* Subtle shadows and highlights.
+
+Do not use every accent color everywhere.
+
+Reserve green for success, amber for warnings, and red or rose for errors.
+
+## Glassmorphism CSS requirements
+
+Create reusable styles and components.
+
+Example design principles:
+
+* Translucent background layers.
+* backdrop-filter: blur(16px) or an appropriate value.
+* Thin semi-transparent borders.
+* Large but restrained border radii.
+* Soft shadows.
+* Subtle radial-gradient lighting.
+* Low-opacity highlights.
+* Smooth hover transitions.
+
+Create reusable classes such as:
+
+.glass-panel
+.glass-card
+.glass-sidebar
+.glass-navbar
+.glass-modal
+.glass-input
+.glass-button
+
+Use these as starting names and implement consistent, maintainable styles.
+
+Avoid making every element excessively transparent.
+
+Maintain strong text contrast.
+
+Provide a readable fallback when backdrop-filter is unsupported.
+
+Respect prefers-reduced-motion.
+
+Do not sacrifice accessibility for visual effects.
+
+## Background design
+
+Create a dark navy background with several large, blurred radial-gradient orbs.
+
+Use restrained cyan and indigo lighting.
+
+Add very subtle ambient motion only where it improves the experience.
+
+Do not make the background distracting.
+
+Avoid heavy particle effects, excessive neon, and unnecessary animations.
+
+## Typography
+
+Use a clean modern sans-serif font.
+
+Suggested:
+
+* Inter
+* Manrope
+* A similar accessible sans-serif
+
+Use a clear hierarchy for:
+
+* Page titles.
+* Section headings.
+* KPI values.
+* Labels.
+* Supporting descriptions.
+
+Use tabular numerals for important metrics where appropriate.
+
+## Sidebar
+
+Create a translucent vertical sidebar with:
+
+* InspectAI logo and icon.
+* Overview.
+* Single Inspection.
+* Batch Inspection.
+* Inspection History.
+* Quality Analytics.
+* Supervisor Reviews, visible only to authorized supervisors.
+* Model Evaluation.
+* Settings.
+* User profile and role.
+* Logout.
+
+The active navigation item should have a soft cyan glow and a translucent highlighted background.
+
+On mobile, collapse the sidebar into an accessible drawer.
+
+## Top navigation
+
+Include:
+
+* Current page title or breadcrumb.
+* Global search if implemented meaningfully.
+* Notification indicator if real notifications exist.
+* User avatar or initials.
+* User name.
+* User role.
+* Profile menu.
+
+Do not add decorative controls that do nothing.
+
+---
+
+# 13. DASHBOARD OVERVIEW PAGE
+
+Build an impressive dashboard.
+
+## Header
+
+Display:
+
+"Quality Intelligence Center"
+
+Supporting text:
+
+"Monitor inspections, detect defects, and maintain product quality."
+
+Include:
+
+* Current date.
+* A refresh action.
+* A primary "New Inspection" button.
+
+## KPI cards
+
+Create glassmorphism KPI cards for:
+
+1. Total inspections.
+2. Normal products.
+3. Defective products.
+4. Pending inspections.
+5. Supervisor reviews pending.
+
+Each card should include:
+
+* A Lucide icon.
+* A clear title.
+* A real metric.
+* A short explanation.
+* A subtle visual accent.
+* A restrained hover animation.
+
+Load metrics from the actual backend.
+
+Do not hardcode sample values into the production dashboard.
+
+For an empty database, show zero values and a useful onboarding message.
+
+## Charts
+
+Use Recharts.
+
+Include:
+
+### Inspection activity
+
+A line or area chart showing inspection counts over time.
+
+### Classification distribution
+
+A donut chart showing Normal and Defective counts.
+
+### Inspection status
+
+A bar chart showing completed, pending, rejected, and failed items.
+
+### Supervisor review summary
+
+Show confirmed and corrected predictions.
+
+Only display review metrics for authorized users.
+
+Charts must use actual API data.
+
+Provide empty states and readable tooltips.
+
+Do not claim that these charts represent factory-wide quality trends unless the underlying data supports that interpretation.
+
+## Recent inspections
+
+Create a glass table with:
+
+* Inspection ID.
+* Thumbnail.
+* Product ID.
+* Original AI prediction.
+* Confidence.
+* Upload date.
+* Status.
+* Review status.
+* Action.
+
+Use clear status badges.
+
+Support pagination and filtering.
+
+Clicking a record should open a detailed inspection page or modal.
+
+---
+
+# 14. SINGLE IMAGE INSPECTION PAGE
+
+Create a visually impressive inspection workspace.
+
+Layout:
+
+Left side:
+
+* Large image upload panel.
+* Drag-and-drop support.
+* File picker.
+* Accepted file types.
+* Upload validation feedback.
+* Image preview.
+* Remove or replace image action.
+
+Right side:
+
+* Product selector.
+* Product ID.
+* Inspection settings that reflect actual backend behavior.
+* Inspect button.
+* Processing status.
+* Results panel.
+
+After a successful inspection, display:
+
+* Uploaded image.
+* Predicted class.
+* Confidence percentage, if supplied.
+* Defect probability, if supported.
+* Model version.
+* Inspection ID.
+* Inspection timestamp.
+* Processing duration, if measured accurately.
+* Current review status.
+
+For Normal predictions:
+
+* Use a restrained green indicator.
+
+For Defective predictions:
+
+* Use a restrained rose or red indicator.
+
+Do not display a success message when inference fails.
+
+Do not invent visual defect bounding boxes or heatmaps unless the supplied model actually produces localization information.
+
+Include a "View Details" action that opens the saved inspection record.
+
+Use Framer Motion for subtle transitions between upload, processing, and result states.
+
+---
+
+# 15. BATCH INSPECTION PAGE
+
+Create a professional batch inspection workspace.
+
+## Upload area
+
+Support drag-and-drop for 1–10 images.
+
+Show:
+
+* Number of selected files.
+* Individual file sizes.
+* Image thumbnails.
+* Validation status.
+* Remove-file controls.
+* Total accepted files.
+* Total rejected files.
+
+Prevent submission when there are no acceptable files.
+
+## Processing interface
+
+After submission, show:
+
+* Batch ID.
+* Batch status.
+* Progress indicator.
+* Accepted count.
+* Rejected count.
+* Completed count.
+* Failed count.
+
+Display an item-level table:
+
+| Image | Status | Prediction | Confidence | Error | Action |
+
+Use actual backend values.
+
+Refresh progress using the batch-status API.
+
+Avoid unnecessary rapid polling.
+
+Stop polling when the batch reaches a terminal status.
+
+Provide a Retry action only when retrying is supported by the backend.
+
+A retry must not create duplicate records accidentally.
+
+## Error states
+
+Show clear messages for:
+
+* Corrupted image.
+* Unsupported file.
+* Image below minimum dimensions.
+* Upload too large.
+* Background processing failure.
+* Network failure.
+
+Do not stop valid images from being processed because another file is invalid.
+
+Add a "View Batch Report" action after processing finishes.
+
+---
+
+# 16. INSPECTION HISTORY PAGE
+
+Build a searchable, filterable inspection table.
+
+Filters:
+
+* Date range.
+* Predicted class.
+* Processing status.
+* Product ID.
+* Review status.
+
+Engineers should see only the records permitted by their role.
+
+Supervisors should be able to access all authorized inspection records.
+
+Include:
+
+* Search.
+* Sorting.
+* Pagination.
+* Image thumbnails.
+* Clear status badges.
+* Record details.
+* Useful empty states.
+
+The history page must query the backend.
+
+Do not use a hardcoded JavaScript array as its data source.
+
+Persist records so they remain available after refreshing the browser or restarting the application.
+
+---
+
+# 17. INSPECTION DETAILS PAGE
+
+Create a detailed inspection view.
+
+Display:
+
+* Original uploaded image.
+* Inspection ID.
+* Batch ID, if applicable.
+* Product ID.
+* Original AI prediction.
+* Confidence.
+* Defect probability, when supported.
+* Model version.
+* Image checksum.
+* Upload time.
+* Processing start and completion times.
+* Processing status.
+* Uploaded by.
+* Error details, when applicable.
+* Supervisor review history.
+
+Clearly distinguish:
+
+AI PREDICTION
+
+from:
+
+SUPERVISOR DECISION
+
+If a supervisor corrects the result, show the original AI prediction and the reviewed classification side by side.
+
+Do not rewrite the original prediction in the UI or database.
+
+---
+
+# 18. SUPERVISOR REVIEW CENTER
+
+This is a key feature.
+
+Create a dedicated review workspace accessible only to supervisors.
+
+## Layout
+
+Use a two-column glassmorphism layout.
+
+Left:
+
+* Inspection image.
+* Product information.
+* Original AI prediction.
+* Confidence information.
+* Relevant inspection metadata.
+
+Right:
+
+* Supervisor decision form.
+* Confirm prediction action.
+* Correct prediction action.
+* Class selector.
+* Review comments.
+* Save review button.
+* Previous review history.
+
+## Workflow
+
+When a supervisor opens an inspection:
+
+1. Retrieve the actual saved prediction.
+2. Display the original AI classification.
+3. Allow the supervisor to confirm or correct it.
+4. Require a valid decision.
+5. Save the review using the backend.
+6. Record the supervisor and timestamp.
+7. Preserve the original prediction.
+8. Refresh the review history.
+9. Display a confirmation message.
+
+The UI must distinguish an unreviewed inspection from a confirmed or corrected inspection.
+
+Prevent duplicate submissions while a review is being saved.
+
+Show meaningful validation errors.
+
+Do not let engineers access this page or submit review operations through direct API requests.
+
+---
+
+# 19. QUALITY ANALYTICS PAGE
+
+Create a polished analytics workspace.
+
+Include:
+
+* Total inspection count.
+* Normal versus Defective distribution.
+* Inspection trends over time.
+* Batch processing success and failure rates.
+* Pending review count.
+* Confirmed and corrected review counts.
+* Model evaluation metrics from the actual evaluation endpoint.
+
+Add a date-range filter if it can be supported correctly.
+
+Allow authorized users to export inspection summaries to CSV.
+
+Calculate analytics from stored records.
+
+Do not hardcode numbers.
+
+Do not confuse the percentage of inspections predicted Defective with model accuracy.
+
+Do not present supervisor agreement as model accuracy.
+
+Label every metric clearly.
+
+For metrics based on supervisor decisions, explain that they represent reviewed records rather than a guaranteed ground-truth dataset.
+
+---
+
+# 20. MODEL EVALUATION PAGE
+
+Build a model evaluation interface.
+
+The page must use actual model predictions against the supplied ground-truth evaluation labels.
+
+Display:
+
+* Total eligible evaluation samples.
+* Correct predictions.
+* Incorrect predictions.
+* Confusion matrix.
+* Precision.
+* Recall.
+* F1-score.
+* Accuracy, when appropriate.
+* Defect recall.
+* Evaluation completion status.
+
+Show the exact number of evaluated samples.
+
+The supplied evaluation set contains 60 samples according to the challenge requirements.
+
+Verify that all 60 eligible samples were evaluated.
+
+Exclude deliberately invalid validation inputs from the evaluation metrics.
+
+Do not fabricate values or use hardcoded demo metrics.
+
+Handle undefined metrics correctly, especially when a class has no predicted samples.
+
+Display a clear warning if the evaluation set or its ground-truth labels cannot be found.
+
+Do not change the supplied classifier to improve the score.
+
+---
+
+# 21. PRODUCT MANAGEMENT
+
+Provide a basic product management interface if required by the challenge.
+
+A supervisor or authorized administrator should be able to:
+
+* View registered products.
+* View product details.
+* Register a product when permitted.
+* Edit permitted product metadata.
+
+Ensure the required product P-PLATE01 is registered.
+
+Use the actual product details from the supplied product_details file.
+
+Do not invent additional product specifications.
+
+Prevent duplicate product IDs.
+
+Do not permit ordinary engineers to change critical product metadata without authorization.
+
+---
+
+# 22. AUTHENTICATION AND LOGIN UI
+
+Create a polished login screen using the same glassmorphism design.
+
+Include:
+
+* InspectAI branding.
+* Email or username field.
+* Password field.
+* Show/hide password.
+* Validation messages.
+* Loading state.
+* Login error state.
+* Accessible form labels.
+
+After login, redirect users according to their actual authorized role.
+
+Do not hardcode credentials into the frontend.
+
+Do not create a public endpoint that allows users to register as supervisors.
+
+Provide a documented secure method for creating the initial supervisor account.
+
+Logout must invalidate or terminate the authentication session appropriately.
+
+Do not expose password hashes or sensitive user information in API responses.
+
+---
+
+# 23. FRONTEND CODE STRUCTURE
+
+Use a modular React structure.
+
+Suggested:
+
+frontend/
+src/
+app/
+App.jsx
+router.jsx
+
+```
+    components/
+        layout/
+            AppLayout.jsx
+            Sidebar.jsx
+            Topbar.jsx
+            MobileNavigation.jsx
+
+        ui/
+            GlassCard.jsx
+            GlassButton.jsx
+            StatusBadge.jsx
+            MetricCard.jsx
+            LoadingSpinner.jsx
+            EmptyState.jsx
+            ConfirmDialog.jsx
+
+        inspections/
+            ImageUploader.jsx
+            InspectionResult.jsx
+            InspectionTable.jsx
+            BatchProgress.jsx
+
+        charts/
+            InspectionTrendChart.jsx
+            ClassificationChart.jsx
+            StatusChart.jsx
+
+    pages/
+        Login.jsx
+        Dashboard.jsx
+        SingleInspection.jsx
+        BatchInspection.jsx
+        InspectionHistory.jsx
+        InspectionDetails.jsx
+        ReviewCenter.jsx
+        Analytics.jsx
+        ModelEvaluation.jsx
+        Settings.jsx
+        NotFound.jsx
+
+    services/
+        api.js
+        authService.js
+        inspectionService.js
+        batchService.js
+        reviewService.js
+        analyticsService.js
+
+    hooks/
+        useAuth.js
+        useInspections.js
+
+    context/
+        AuthContext.jsx
+
+    styles/
+        globals.css
+        glassmorphism.css
+
+    utils/
+        formatters.js
+        validators.js
+
+    main.jsx
+```
+
+Adapt the structure where necessary.
+
+Avoid putting the entire application into one large React component.
+
+Create reusable components.
+
+Use a central API client with consistent error handling.
+
+Keep authentication state and API requests consistent.
+
+Do not duplicate business logic in multiple components.
+
+---
+
+# 24. RESPONSIVE DESIGN
+
+The application must work on:
+
+* Desktop.
+* Laptop.
+* Tablet.
+* Mobile.
+
+On desktop:
+
+* Full sidebar.
+* Spacious dashboard.
+* Two-column inspection workspace.
+
+On tablet:
+
+* Compact sidebar.
+* Responsive cards.
+* Scrollable tables.
+
+On mobile:
+
+* Collapsible navigation.
+* Stacked cards.
+* Single-column inspection layout.
+* Touch-friendly controls.
+* Responsive dialogs.
+* No horizontal overflow in ordinary page layouts.
+
+Tables may use an accessible horizontal scroll container where necessary.
+
+Make upload controls usable on mobile.
+
+Ensure chart labels and values remain readable.
+
+---
+
+# 25. ANIMATIONS AND MICRO-INTERACTIONS
+
+Use Framer Motion for:
+
+* Page transitions.
+* Sidebar expansion.
+* Card entrance animations.
+* Modal opening and closing.
+* Upload interactions.
+* Inspection result transitions.
+* Button feedback.
+* Subtle loading transitions.
+
+Animations must be smooth and restrained.
+
+Avoid:
+
+* Excessive bounce effects.
+* Long animations that slow down the workflow.
+* Constant motion across every component.
+* Animations that obscure important results.
+
+Respect reduced-motion preferences.
+
+Prioritize fast interaction and responsiveness.
+
+---
+
+# 26. ERROR HANDLING
+
+Implement consistent backend and frontend error handling.
+
+Backend:
+
+* Structured validation errors.
+* Authentication errors.
+* Permission errors.
+* Missing-record errors.
+* Model-loading errors.
+* Inference errors.
+* Database errors.
+* Background task errors.
+
+Frontend:
+
+* Invalid login.
+* Expired session.
+* Permission denied.
+* Invalid image.
+* Failed upload.
+* Failed inference.
+* Failed batch task.
+* Network failure.
+* Empty database.
+* Missing model artifacts.
+
+Display concise, understandable messages.
+
+Keep internal stack traces and sensitive server details out of production API responses.
+
+Log diagnostic details securely on the server.
+
+Never show a successful prediction when inference has failed.
+
+---
+
+# 27. SECURITY REQUIREMENTS
+
+Implement:
+
+* Server-side role-based permissions.
+* Secure authentication.
+* CSRF protection where applicable.
+* Input validation.
+* Image-content validation.
+* Upload-size limits.
+* Safe file storage.
+* Environment-based secrets.
+* Restricted CORS.
+* Safe error responses.
+* Database constraints.
+* Permission tests.
+* Protection against unauthorized record access.
+
+Do not expose:
+
+* Passwords.
+* Secret keys.
+* Database credentials.
+* Authentication tokens.
+* Internal filesystem paths.
+
+Do not hardcode production secrets.
+
+Create a .env.example containing placeholders only.
+
+Use separate development and production settings where appropriate.
+
+---
+
+# 28. TESTING REQUIREMENTS
+
+Create automated backend tests for the critical workflows.
+
+At minimum, test:
+
+### Authentication
+
+* Valid login.
+* Invalid login.
+* Unauthenticated API access.
+
+### Authorization
+
+* Engineer can create permitted inspections.
+* Engineer cannot access supervisor-only reviews.
+* Engineer cannot promote themselves.
+* Supervisor can review inspections.
+
+### Image validation
+
+* Valid image accepted.
+* Corrupted image rejected.
+* Text file renamed as .jpg rejected.
+* Too-small image rejected.
+* Oversized upload rejected.
+* Mixed batch partially accepted.
+
+### AI integration
+
+* Actual supplied inference code is called.
+* Correct class mapping is used.
+* Threshold behavior matches the supplied implementation.
+* Inference failures are recorded correctly.
+* Confidence is not fabricated.
+
+### Persistence
+
+* Inspection records survive subsequent API requests.
+* Original predictions remain unchanged after review.
+* Review history is preserved.
+* Batch statuses are updated correctly.
+
+### Background processing
+
+* Successful task.
+* Failed task.
+* Independent batch item failures.
+* Correct completion counts.
+
+Use mocks only for tests where appropriate.
+
+Do not use mocked predictions in the actual application.
+
+Provide a documented way to run the test suite.
+
+---
+
+# 29. ENVIRONMENT AND STARTUP
+
+Create complete setup instructions.
+
+Provide:
+
+* backend/requirements.txt
+* frontend/package.json
+* backend/.env.example
+* database configuration
+* Redis configuration
+* Celery worker command
+* Django migration commands
+* Frontend development command
+* Test commands
+
+Provide a root README.md.
+
+Document how to start each service.
+
+Expected local development services:
+
+1. Django API server.
+2. PostgreSQL or the selected local database.
+3. Redis.
+4. Celery worker.
+5. React/Vite development server.
+
+Ensure the frontend API base URL is configurable.
+
+Use environment variables for deployment settings.
+
+If the environment does not have PostgreSQL or Redis installed, explain the missing dependency and provide an appropriate local setup option.
+
+Do not silently replace asynchronous batch processing with synchronous processing just because Redis is unavailable.
+
+Do not claim that a service is running unless it has actually been started and verified.
+
+---
+
+# 30. DEMONSTRATION MODE
+
+Create a useful first-run experience.
+
+If the database is empty:
+
+* Show zero-valued metrics.
+* Show a welcome message.
+* Provide a clear action to start the first inspection.
+
+Do not fabricate inspection records.
+
+Do not silently insert fake predictions into the production database.
+
+If you need visual test data for development, use an explicitly labeled development-only fixture.
+
+Ensure the final demonstration can use the actual supplied model and sample images.
+
+Provide a short demonstration checklist in the README.
+
+The checklist must include:
+
+1. Engineer login.
+2. Single image inspection.
+3. Mixed valid and invalid batch upload.
+4. Batch status tracking.
+5. Persistent inspection history.
+6. Supervisor login.
+7. Supervisor confirmation or correction.
+8. Engineer permission-denied test.
+9. Model evaluation.
+10. Dashboard and analytics.
+
+---
+
+# 31. IMPLEMENTATION ORDER
+
+Do not attempt to implement everything in one unverified code-generation pass.
+
+Build the application in the following stages.
+
+## Stage 1: Inspect and plan
+
+* Inspect the repository.
+* Read the challenge documentation.
+* Inspect the actual model.
+* Confirm the data format.
+* Identify the existing frontend and backend.
+* Present the proposed architecture.
+* List dependencies and risks.
+
+## Stage 2: Backend foundation
+
+* Configure Django.
+* Configure database models.
+* Implement authentication.
+* Implement roles and permissions.
+* Register the product.
+* Create migrations.
+* Add backend tests.
+
+## Stage 3: AI and inspection
+
+* Integrate the supplied inference code.
+* Implement image validation.
+* Implement single-image inspection.
+* Persist predictions.
+* Add tests using actual inference or controlled test doubles.
+
+## Stage 4: Batch processing
+
+* Configure Redis.
+* Configure Celery.
+* Implement asynchronous processing.
+* Implement item-level statuses.
+* Implement batch progress.
+* Test mixed valid and invalid uploads.
+
+## Stage 5: Supervisor workflow
+
+* Implement supervisor-only review APIs.
+* Preserve original predictions.
+* Add review history.
+* Add audit events.
+* Test permission enforcement.
+
+## Stage 6: Frontend
+
+* Build the glassmorphism design system.
+* Build authentication.
+* Build the dashboard.
+* Build single inspection.
+* Build batch inspection.
+* Build history and details.
+* Build supervisor reviews.
+* Build analytics and evaluation.
+
+## Stage 7: Integration
+
+* Connect every page to actual APIs.
+* Remove hardcoded production data.
+* Verify authentication behavior.
+* Verify API error handling.
+* Verify image uploads.
+* Verify persistent records.
+* Verify Celery task processing.
+
+## Stage 8: Final validation
+
+* Run migrations.
+* Run automated tests.
+* Verify all 60 evaluation samples.
+* Test the complete workflow.
+* Fix console errors.
+* Fix backend errors.
+* Verify the application can restart without losing persistent records.
+* Prepare the demonstration.
+
+After completing each stage, report what was implemented, which files were created or changed, which tests passed, and what remains.
+
+Do not claim success without checking the actual result.
+
+---
+
+# 32. FINAL ACCEPTANCE CRITERIA
+
+The project is complete only when:
+
+1. The application starts successfully.
+2. The supplied AI model loads successfully.
+3. The actual inference pipeline is used.
+4. Single-image inspection works.
+5. Image validation works.
+6. Mixed batch uploads work.
+7. Celery processes valid items asynchronously.
+8. Item-level statuses update correctly.
+9. Predictions are persisted.
+10. Engineers can view their permitted history.
+11. Supervisors can view all authorized records.
+12. Supervisors can confirm or correct predictions.
+13. Original predictions remain unchanged.
+14. Backend permissions prevent unauthorized reviews.
+15. Evaluation metrics are computed from actual predictions.
+16. The evaluation covers all 60 eligible samples.
+17. The dashboard displays actual stored data.
+18. The UI is responsive and uses consistent glassmorphism styling.
+19. Automated tests cover the critical workflows.
+20. Setup and demonstration instructions are documented.
+
+---
+
+# 33. DESIGN QUALITY BAR
+
+The finished UI should feel like a polished commercial AI SaaS product.
+
+Prioritize:
+
+* Beautiful dark glassmorphism.
+* Translucent layered surfaces.
+* Soft cyan and indigo lighting.
+* Strong typography.
+* Elegant data visualizations.
+* Smooth but restrained animations.
+* Clear status indicators.
+* Excellent spacing.
+* Responsive layouts.
+* Accessible controls.
+* Professional empty states.
+* Clear loading and error states.
+
+Do not create a cluttered interface.
+
+Do not sacrifice functionality for aesthetics.
+
+Do not create nonfunctional decorative buttons.
+
+Do not use fake production data.
+
+Do not simulate successful AI predictions.
+
+The final product must combine a premium interface with a real, secure, testable backend.
+
+---
+
+# 34. START NOW
+
+Begin by inspecting the existing project directory and all supplied challenge files.
+
+Read the model inference code and the challenge documentation before implementing anything.
+
+Then:
+
+1. Summarize the challenge requirements.
+2. Explain the actual model interface and input/output format.
+3. Show the proposed backend and frontend architecture.
+4. Identify missing dependencies.
+5. Create a prioritized implementation plan.
+6. Begin implementing Stage 2 after the inspection is complete.
+
+Work directly in the existing repository whenever possible.
+
+Preserve working code.
+
+Do not overwrite supplied model artifacts.
+
+Do not invent missing challenge specifications.
+
+Build a real application that can withstand the expected hackathon evaluation.
+
+The goal is to deliver **InspectAI: a beautiful, reliable, secure, AI-powered visual quality inspection platform with glassmorphism UI and complete end-to-end functionality.**
